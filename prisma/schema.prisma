@@ -1,0 +1,27 @@
+// prisma/schema.prisma
+// Define your database models
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Example models
+
+model Review {
+  id          Int      @id @default(autoincrement())
+  userId      Int
+  equipmentId Int
+  bookingId   String   @unique
+  rating      Int
+  comment     String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([equipmentId])
+  @@index([userId])
+}
