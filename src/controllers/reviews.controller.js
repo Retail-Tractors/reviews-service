@@ -9,55 +9,68 @@ const e = require("express");
 async function createReview(req, res) {
     try {
         const { bookingId, rating, comment, name } = req.body;
+
         // Validate input        
-        if ( !bookingId || !rating ) {
-            return res.status(400).json({ error: "bookingId, and rating are required." });
+        if (!bookingId || !rating) {
+            return res.status(400).json({ error: "bookingId and rating are required." });
         }
-        if (rating<1 || rating>5) {
-            return res.status(400).json({error: "Rating must be between 1 and 5."});
+        if (rating < 1 || rating > 5) {
+            return res.status(400).json({ error: "Rating must be between 1 and 5." });
         }
 
         logger.info(`Creating review for booking ID: ${bookingId} by user ID: ${req.user.sub}`);
-        let reviewName = name ? name : req.user.name
+        
+        let reviewName = name ? name : (req.user.name || "Anonymous");
+
         // Check if booking exists and belongs to the user
         logger.info(`Fetching booking details for booking ID: ${bookingId}`);
         const bookingResponse = await axios.get(`http://bookings-service:3002/bookings/${bookingId}`, {
             headers: {
                 Authorization: req.headers["authorization"]
-                
             }
         });
+
         const booking = bookingResponse.data;     
-        const equipmentId = booking.equipmentId  
-        if (parseInt(booking.userId) !== parseInt(req.user.sub)) {
-            logger.warn(`User ID: ${req.user.sub} attempted to review booking ID: ${bookingId} of user ${booking.userId} which does not belong to them.`);
+        
+        const equipmentId = parseInt(booking.equipmentId); 
+
+        if (String(booking.userId) !== String(req.user.sub)) {
+            logger.warn(`User ID: ${req.user.sub} attempted to review booking of user ${booking.userId}`);
             return res.status(403).json({ error: "Booking does not belong to the user." });
         }
-        if (booking.status !== 'CONFIRMED') {
+
+        if (booking.status !== 'CONFIRMED' && booking.status !== 'COMPLETED') {
             logger.warn(`Booking ID: ${bookingId} is not completed. Current status: ${booking.status}`);
             return res.status(400).json({ error: "Cannot review a booking that is not completed." });
         }
+
         // Create review
         logger.info(`Creating review record in the database for booking ID: ${bookingId}`);
+        
         const newReview = await prisma.review.create({
             data: {
-                reviewName,
+                userName:reviewName,
                 bookingId,
-                equipmentId,
-                rating,
+                equipmentId, 
+                rating: parseInt(rating),
                 comment
             }
         });
-        // Publish email event
-        // await publishEmailEvent({
-        //     to: booking.userEmail,
-        //     subject: "Thank you for your review!",
-        //     body: `Dear User,\n\nThank you for reviewing your booking with ID: ${bookingId}.\n\nBest regards,\nRetail Tractors Team`
-        // });
+
         logger.info(`Review created with ID: ${newReview.id}`);
         return res.status(201).json(newReview);
+
     } catch (error) {
-        logger.error("Error creating review:", error);
+        const errorMessage = error.response ? JSON.stringify(error.response.data) : error.message;
+        logger.error(`Error creating review: ${errorMessage}`);
+        
+        if (error.code) {
+            logger.error(`Prisma Error Code: ${error.code}`);
+            if (error.code === 'P2002') {
+                return res.status(409).json({ error: "You have already reviewed this booking." });
+            }
+        }
+
         return res.status(500).json({ error: "Internal server error." });
     }
 }
