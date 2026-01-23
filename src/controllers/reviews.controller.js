@@ -181,25 +181,33 @@ async function deleteReview(req, res) {
 
 async function getReviewsByEquipmentId(req, res) {
     try {
-        const equipmentId = req.params.equipmentId;
+        const equipmentId = parseInt(req.params.equipmentId);
+        
+        if (isNaN(equipmentId)) {
+             return res.status(400).json({ error: "Invalid equipment ID." });
+        }
+
         const { page, limit, offset } = req.pagination;
+        
         logger.info(`Fetching reviews for equipment ID: ${equipmentId}, page: ${page}, limit: ${limit}, offset: ${offset}`);
+        
         const reviews = await prisma.review.findMany({
             where: { equipmentId: equipmentId },
             skip: offset,
             take: limit,
             orderBy: { createdAt: 'desc' }
         });
+        
         const totalReviews = await prisma.review.count({ where: { equipmentId: equipmentId } });
         const totalPages = Math.ceil(totalReviews / limit);
 
         if (page > totalPages && totalPages !== 0) {
-        logger.warn("Page number exceeds total pages.");
-        return res
-            .status(400)
-            .json({ error: "Page number exceeds total pages." });
+            logger.warn("Page number exceeds total pages.");
+            return res.status(400).json({ error: "Page number exceeds total pages." });
         }   
+
         logger.info(`Total reviews found for equipment ID ${equipmentId}: ${totalReviews}`);
+        
         return res.status(200).json({
             page,
             limit,
@@ -215,15 +223,29 @@ async function getReviewsByEquipmentId(req, res) {
 
 async function getAverageRatingForEquipment(req, res) {
     try {
-        const equipmentId = req.params.equipmentId;
+        const equipmentId = parseInt(req.params.equipmentId);
+
+        if (isNaN(equipmentId)) {
+             return res.status(400).json({ error: "Invalid equipment ID." });
+        }
+
         logger.info(`Calculating average rating for equipment ID: ${equipmentId}`);
+        
         const result = await prisma.review.aggregate({
             where: { equipmentId: equipmentId },
             _avg: { rating: true }
         });
-        const averageRating = result._avg.rating;
+
+        const rawRating = result._avg.rating;
+        const averageRating = rawRating !== null ? rawRating : 0; 
+
         logger.info(`Average rating for equipment ID ${equipmentId} is ${averageRating}`);
-        return res.status(200).json({ equipmentId, averageRating });
+        
+        return res.status(200).json({ 
+            equipmentId, 
+            averageRating: averageRating 
+        });
+
     } catch (error) {
         logger.error("Error calculating average rating:", error);
         return res.status(500).json({ error: "Internal server error." });
