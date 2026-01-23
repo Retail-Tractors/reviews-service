@@ -8,9 +8,9 @@ const e = require("express");
 // Controller to handle review creation
 async function createReview(req, res) {
     try {
-        const { bookingId, equipmentId, rating, comment, name } = req.body;
+        const { bookingId, rating, comment, name } = req.body;
         // Validate input        
-        if ( !bookingId || !rating || !equipmentId ) {
+        if ( !bookingId || !rating ) {
             return res.status(400).json({ error: "bookingId, and rating are required." });
         }
         if (rating<1 || rating>5) {
@@ -21,17 +21,19 @@ async function createReview(req, res) {
         let reviewName = name ? name : req.user.name
         // Check if booking exists and belongs to the user
         logger.info(`Fetching booking details for booking ID: ${bookingId}`);
-        const bookingResponse = await axios.get(`http://booking-service:3002/bookings/${bookingId}`, {
+        const bookingResponse = await axios.get(`http://bookings-service:3002/bookings/${bookingId}`, {
             headers: {
                 Authorization: req.headers["authorization"]
+                
             }
         });
-        const booking = bookingResponse.data;       
-        if (booking.userId !== req.user.sub) {
-            logger.warn(`User ID: ${req.user.sub} attempted to review booking ID: ${bookingId} which does not belong to them.`);
+        const booking = bookingResponse.data;     
+        const equipmentId = booking.equipmentId  
+        if (parseInt(booking.userId) !== parseInt(req.user.sub)) {
+            logger.warn(`User ID: ${req.user.sub} attempted to review booking ID: ${bookingId} of user ${booking.userId} which does not belong to them.`);
             return res.status(403).json({ error: "Booking does not belong to the user." });
         }
-        if (booking.status !== 'COMPLETED') {
+        if (booking.status !== 'CONFIRMED') {
             logger.warn(`Booking ID: ${bookingId} is not completed. Current status: ${booking.status}`);
             return res.status(400).json({ error: "Cannot review a booking that is not completed." });
         }
