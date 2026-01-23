@@ -1,5 +1,5 @@
 const { request } = require("express");
-const { publishEmailEvent } = require("../rabbitmq/publisher");
+//const { publishEmailEvent } = require("../rabbitmq/publisher");
 const prisma = require("../config/db"); // Import prisma instance
 const logger = require("../utils/logger");
 const axios = require("axios");
