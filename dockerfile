@@ -10,9 +10,6 @@ RUN npm install
 # Copiar o resto do código
 COPY . .
 
-# Gerar o Prisma Client (IMPORTANTE)
-RUN npx prisma generate
-
 EXPOSE 3006
 
-CMD ["npm", "start"]
+CMD ["sh", "-c", "npx prisma generate && node server.js"]
