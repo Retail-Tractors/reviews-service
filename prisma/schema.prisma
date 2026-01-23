@@ -14,7 +14,7 @@ datasource db {
 
 model Review {
   id          Int      @id @default(autoincrement())
-  userId      Int
+  userName    String
   equipmentId Int
   bookingId   String   @unique
   rating      Int
@@ -23,5 +23,4 @@ model Review {
   updatedAt   DateTime @updatedAt
 
   @@index([equipmentId])
-  @@index([userId])
 }
